@@ -21,18 +21,19 @@ Summary:        Google Antigravity IDE — An agentic AI development platform
 License:        LicenseRef-Google-Antigravity
 URL:            https://antigravity.google/
 
-# The tarball is downloaded at build time via the .copr/Makefile or spectool.
-# The URL below is a template — the actual download URL is resolved by
-# check-version.sh and passed to spectool.
-Source0:        %{upstream_name}.tar.gz
+# The tarballs are downloaded at build time via the .copr/Makefile
+# URL_X64:        https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.1.1-6123990880747520/linux-x64/Antigravity%20IDE.tar.gz
+# URL_ARM64:      https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.1.1-6123990880747520/linux-arm/Antigravity%20IDE.tar.gz
+Source0:        Antigravity-x64.tar.gz
+Source1:        Antigravity-arm64.tar.gz
 
 # Desktop and system integration files (shipped in this repo)
-Source1:        antigravity-ide.desktop
-Source2:        antigravity-ide-url-handler.desktop
-Source3:        antigravity-ide.appdata.xml
-Source4:        antigravity-ide-wrapper.sh
+Source2:        antigravity-ide.desktop
+Source3:        antigravity-ide-url-handler.desktop
+Source4:        antigravity-ide.appdata.xml
+Source5:        antigravity-ide-wrapper.sh
 
-ExclusiveArch:  x86_64
+ExclusiveArch:  x86_64 aarch64
 
 # ---- Disable automatic dependency scanning ----
 # The upstream binary bundles its own Electron/Chromium/Node.js runtime.
@@ -84,8 +85,16 @@ a command-line wrapper and desktop entries.
 
 # ============================================================================
 %prep
-# The tarball extracts to "Antigravity-x64/"
-%setup -q -n %{upstream_name}-x64
+# Extract into a clean directory regardless of the tarball's internal structure
+%setup -q -c -T -n %{name}-%{version}
+
+%ifarch x86_64
+tar xzf %{SOURCE0} --strip-components=1
+%endif
+
+%ifarch aarch64
+tar xzf %{SOURCE1} --strip-components=1
+%endif
 
 # ============================================================================
 %install
@@ -103,16 +112,16 @@ fi
 
 # Install the CLI wrapper script to /usr/bin/
 mkdir -p %{buildroot}%{_bindir}
-install -m 755 %{SOURCE4} %{buildroot}%{_bindir}/antigravity-ide
+install -m 755 %{SOURCE5} %{buildroot}%{_bindir}/antigravity-ide
 
 # Desktop entries
 mkdir -p %{buildroot}%{_datadir}/applications
-install -m 644 %{SOURCE1} %{buildroot}%{_datadir}/applications/
 install -m 644 %{SOURCE2} %{buildroot}%{_datadir}/applications/
+install -m 644 %{SOURCE3} %{buildroot}%{_datadir}/applications/
 
 # AppStream metadata
 mkdir -p %{buildroot}%{_datadir}/metainfo
-install -m 644 %{SOURCE3} %{buildroot}%{_datadir}/metainfo/
+install -m 644 %{SOURCE4} %{buildroot}%{_datadir}/metainfo/
 
 # Icon (extract from upstream resources if available)
 mkdir -p %{buildroot}%{_datadir}/pixmaps

@@ -1,37 +1,22 @@
 # ============================================================================
 # .copr/Makefile — COPR SRPM build integration
 # ============================================================================
-# When COPR clones this repo, it runs: make -f .copr/Makefile srpm outdir=<dir>
-# This Makefile downloads the upstream tarball and builds an SRPM.
-# ============================================================================
 
 SPEC := antigravity-ide.spec
-UPSTREAM_NAME := Antigravity
-DOWNLOAD_URL := https://antigravity.google/download
-
-# COPR passes the output directory via the 'outdir' variable
 outdir ?= $(CURDIR)
+
+URL_X64 = $(shell grep '^# URL_X64:' $(CURDIR)/$(SPEC) | awk '{print $$3}')
+URL_ARM64 = $(shell grep '^# URL_ARM64:' $(CURDIR)/$(SPEC) | awk '{print $$3}')
 
 .PHONY: srpm
 
 srpm:
-	# -----------------------------------------------------------
-	# Step 1: Download the upstream tarball from Google
-	# -----------------------------------------------------------
-	@echo "Downloading upstream tarball..."
-	curl -sL -o $(CURDIR)/$(UPSTREAM_NAME).tar.gz \
-		"$(DOWNLOAD_URL)" \
-		--max-time 300 \
-		--retry 3 \
-		--retry-delay 5
+	@echo "Downloading x86_64 tarball..."
+	curl -sL -o $(CURDIR)/Antigravity-x64.tar.gz "$(URL_X64)"
+	
+	@echo "Downloading aarch64 tarball..."
+	curl -sL -o $(CURDIR)/Antigravity-arm64.tar.gz "$(URL_ARM64)"
 
-	# Verify we got a real tarball (not an HTML error page)
-	@file $(CURDIR)/$(UPSTREAM_NAME).tar.gz | grep -q "gzip compressed" || \
-		(echo "ERROR: Downloaded file is not a valid gzip archive" && exit 1)
-
-	# -----------------------------------------------------------
-	# Step 2: Build the SRPM
-	# -----------------------------------------------------------
 	@echo "Building SRPM..."
 	rpmbuild -bs \
 		--define "_sourcedir $(CURDIR)" \

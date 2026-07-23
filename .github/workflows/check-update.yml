@@ -1,17 +1,7 @@
 name: Check for Antigravity IDE Updates
 
-# ============================================================================
-# This workflow runs daily (and on manual trigger) to check if Google has
-# released a new version of Antigravity IDE. If so, it:
-#   1. Updates the version in the .spec file
-#   2. Adds a changelog entry
-#   3. Commits, tags, and pushes
-#   4. Triggers a COPR rebuild via webhook
-# ============================================================================
-
 on:
   schedule:
-    # Run daily at 06:00 UTC
     - cron: '0 6 * * *'
   workflow_dispatch:
     inputs:
@@ -44,65 +34,25 @@ jobs:
       - name: Download and check latest version
         id: latest
         run: |
-          # Download the tarball to a temp location (just enough to inspect)
-          TMPDIR=$(mktemp -d)
-          echo "Downloading tarball to inspect version..."
-
-          # Try to download the tarball
-          curl -sL -o "$TMPDIR/Antigravity.tar.gz" \
-            "https://antigravity.google/download" \
-            --max-time 300 \
-            --retry 3 \
-            --retry-delay 5
-
-          # Verify it's a real tarball
-          if ! file "$TMPDIR/Antigravity.tar.gz" | grep -q "gzip compressed"; then
-            echo "ERROR: Downloaded file is not a valid gzip archive"
-            echo "updated=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # Extract just the product.json to get the version
-          tar xzf "$TMPDIR/Antigravity.tar.gz" -C "$TMPDIR" \
-            --wildcards "*/resources/app/product.json" 2>/dev/null || true
-
-          # Try to read ideVersion from product.json
-          PRODUCT_JSON=$(find "$TMPDIR" -name "product.json" -path "*/resources/app/*" | head -1)
-          if [[ -n "$PRODUCT_JSON" ]]; then
-            NEW_VERSION=$(python3 -c "
-          import json
-          with open('$PRODUCT_JSON') as f:
-              d = json.load(f)
-          print(d.get('ideVersion', d.get('version', '')))
-          " 2>/dev/null || true)
-          fi
-
-          # Fallback: extract version from directory name
-          if [[ -z "$NEW_VERSION" ]]; then
-            NEW_VERSION=$(tar tzf "$TMPDIR/Antigravity.tar.gz" | head -1 | grep -oP '\d+\.\d+\.\d+' || true)
-          fi
-
-          rm -rf "$TMPDIR"
-
-          if [[ -z "$NEW_VERSION" ]]; then
-            echo "ERROR: Could not determine latest version"
-            echo "updated=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "Latest version: $NEW_VERSION"
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          bash check-version.sh > version_info.txt
+          cat version_info.txt
+          source version_info.txt
+          
+          echo "Latest version: $version"
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "url_x64=$url_x64" >> $GITHUB_OUTPUT
+          echo "url_arm64=$url_arm64" >> $GITHUB_OUTPUT
 
           # Compare versions
           CURRENT="${{ steps.current.outputs.version }}"
-          if [[ "$NEW_VERSION" != "$CURRENT" ]]; then
+          if [[ "$version" != "$CURRENT" ]]; then
             # Use sort -V to verify it's actually newer (not a downgrade)
-            NEWER=$(printf '%s\n%s' "$CURRENT" "$NEW_VERSION" | sort -V | tail -1)
-            if [[ "$NEWER" == "$NEW_VERSION" && "$NEWER" != "$CURRENT" ]]; then
-              echo "Update available: $CURRENT → $NEW_VERSION"
+            NEWER=$(printf '%s\n%s' "$CURRENT" "$version" | sort -V | tail -1)
+            if [[ "$NEWER" == "$version" && "$NEWER" != "$CURRENT" ]]; then
+              echo "Update available: $CURRENT → $version"
               echo "updated=true" >> $GITHUB_OUTPUT
             else
-              echo "Version $NEW_VERSION is not newer than $CURRENT"
+              echo "Version $version is not newer than $CURRENT"
               echo "updated=false" >> $GITHUB_OUTPUT
             fi
           else
@@ -114,14 +64,20 @@ jobs:
         if: steps.latest.outputs.updated == 'true' || inputs.force_rebuild == 'true'
         env:
           NEW_VERSION: ${{ steps.latest.outputs.version }}
+          URL_X64: ${{ steps.latest.outputs.url_x64 }}
+          URL_ARM64: ${{ steps.latest.outputs.url_arm64 }}
         run: |
+          # Update URLs in comments
+          sed -i "s|^# URL_X64:.*|# URL_X64:        $URL_X64|" antigravity-ide.spec
+          sed -i "s|^# URL_ARM64:.*|# URL_ARM64:      $URL_ARM64|" antigravity-ide.spec
+
           # Update the Version field
           sed -i "s/^Version:.*/Version:        ${NEW_VERSION}/" antigravity-ide.spec
 
           # Reset Release to 1 for new version
           sed -i "s/^Release:.*/Release:        1%{?dist}/" antigravity-ide.spec
 
-          # Add changelog entry (must be RFC-2822 date format for RPM)
+          # Add changelog entry
           DATE=$(LC_ALL=C date +"%a %b %d %Y")
           CHANGELOG_ENTRY="* ${DATE} Automated Update <antigravity-ide-rpm@users.noreply.github.com> - ${NEW_VERSION}-1\n- Update to upstream version ${NEW_VERSION}"
 
@@ -129,7 +85,6 @@ jobs:
           sed -i "/%changelog/{n;s|^|${CHANGELOG_ENTRY}\n|}" antigravity-ide.spec
 
           echo "Spec file updated to version ${NEW_VERSION}"
-          cat antigravity-ide.spec | head -20
 
       - name: Commit and push
         if: steps.latest.outputs.updated == 'true' || inputs.force_rebuild == 'true'
@@ -142,11 +97,7 @@ jobs:
           git add antigravity-ide.spec
           git diff --cached --stat
 
-          git commit -m "chore: update to Antigravity IDE ${NEW_VERSION}
-
-          Automated version bump detected by daily check.
-          Upstream release: https://antigravity.google/download"
-
+          git commit -m "chore: update to Antigravity IDE ${NEW_VERSION}"
           git tag -a "v${NEW_VERSION}" -m "Antigravity IDE ${NEW_VERSION}"
           git push origin main --tags
 
@@ -162,18 +113,5 @@ jobs:
           if [[ "$RESPONSE" -ge 200 && "$RESPONSE" -lt 300 ]]; then
             echo "✅ COPR rebuild triggered successfully (HTTP $RESPONSE)"
           else
-            echo "⚠️  COPR webhook returned HTTP $RESPONSE — build may not have started"
-            echo "Check https://copr.fedorainfracloud.org/coprs/pehlivanu/antigravity-ide/builds/"
-          fi
-
-      - name: Summary
-        run: |
-          echo "## Antigravity IDE Update Check" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Current version:** ${{ steps.current.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Latest version:** ${{ steps.latest.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ steps.latest.outputs.updated }}" == "true" ]]; then
-            echo "- **Status:** ✅ Updated and COPR rebuild triggered" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- **Status:** ℹ️ Already up-to-date" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️  COPR webhook returned HTTP $RESPONSE"
           fi
