@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+        <id>antigravity-ide.desktop</id>
+        <metadata_license>MIT</metadata_license>
+        <project_license>LicenseRef-proprietary=https://antigravity.google/terms</project_license>
+        <name>Antigravity IDE</name>
+        <url type="homepage">https://antigravity.google</url>
+        <summary>Google Antigravity IDE — An agentic AI development platform</summary>
+        <description>
+                <p>Google Antigravity IDE is an agentic AI development platform
+                from Google, evolving the IDE into the agent-first era. Built on
+                the foundation of Visual Studio Code, it provides a premium
+                development experience with deep AI agent integration.</p>
+                <p>This is an unofficial community package for Fedora.</p>
+        </description>
+</component>
