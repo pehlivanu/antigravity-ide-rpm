@@ -151,6 +151,12 @@ chmod 4755 %{buildroot}%{install_dir}/chrome-sandbox 2>/dev/null || true
 %{_datadir}/applications/antigravity-ide-url-handler.desktop
 %{_datadir}/metainfo/antigravity-ide.appdata.xml
 %{_datadir}/pixmaps/antigravity-ide.png
+%dir %{_datadir}/bash-completion
+%dir %{_datadir}/bash-completion/completions
+%{_datadir}/bash-completion/completions/antigravity-ide
+%dir %{_datadir}/zsh
+%dir %{_datadir}/zsh/site-functions
+%{_datadir}/zsh/site-functions/_antigravity-ide
 
 # ============================================================================
 %changelog
