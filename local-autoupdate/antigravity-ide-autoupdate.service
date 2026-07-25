@@ -1,0 +1,6 @@
+[Unit]
+Description=Check for and install Antigravity IDE updates
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/antigravity-ide-autoupdate.sh

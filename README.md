@@ -37,6 +37,13 @@ sudo dnf upgrade
 sudo dnf upgrade antigravity-ide
 ```
 
+### Want zero manual steps, including the install?
+
+The check → build → publish pipeline above already runs unattended. To also
+auto-*install* new builds on your machine (with a desktop notification when
+it happens), see [`local-autoupdate/`](local-autoupdate/) — a one-time
+`./install.sh` sets up a `systemd --user` timer scoped to just this package.
+
 ## 🏗️ How It Works
 
 ```
@@ -74,6 +81,7 @@ sudo dnf upgrade antigravity-ide
 ├── antigravity-ide.appdata.xml   # AppStream metadata
 ├── antigravity-ide-wrapper.sh    # CLI wrapper for /usr/bin/
 ├── check-version.sh              # Version detection utility
+├── local-autoupdate/             # Optional: auto-install updates on your machine
 ├── LICENSE                       # MIT (packaging scripts only)
 ├── README.md                     # This file
 └── CONTRIBUTING.md               # Contribution guide
