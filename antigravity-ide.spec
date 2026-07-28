@@ -16,7 +16,7 @@
 
 Name:           antigravity-ide
 Version:        2.1.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Google Antigravity IDE — An agentic AI development platform
 License:        LicenseRef-Google-Antigravity
 URL:            https://antigravity.google/
@@ -34,6 +34,11 @@ Source4:        antigravity-ide.appdata.xml
 Source5:        antigravity-ide-wrapper.sh
 
 ExclusiveArch:  x86_64 aarch64
+
+# ---- Build dependencies ----
+# python3 is used at install time to disable the bundled Electron
+# auto-updater (see %install) via an in-place JSON edit of product.json.
+BuildRequires:  python3
 
 # ---- Disable automatic dependency scanning ----
 # The upstream binary bundles its own Electron/Chromium/Node.js runtime.
@@ -110,6 +115,27 @@ if [ -f %{buildroot}%{install_dir}/antigravity ] && \
        %{buildroot}%{install_dir}/antigravity-ide
 fi
 
+# Disable the bundled Electron auto-updater. Updates for this package are
+# managed via dnf/COPR (see .github/workflows/check-update.yml), not the
+# app's own updater — leaving updateUrl pointed at a live endpoint causes
+# spurious "update available" notifications inside the IDE that don't
+# correspond to real dnf updates and can reference unrelated release notes.
+PRODUCT_JSON="%{buildroot}%{install_dir}/resources/app/product.json"
+if [ -f "$PRODUCT_JSON" ]; then
+    python3 - "$PRODUCT_JSON" <<'PYEOF'
+import json
+import sys
+
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+data["updateUrl"] = ""
+with open(path, "w") as f:
+    json.dump(data, f, indent="\t")
+    f.write("\n")
+PYEOF
+fi
+
 # Install the CLI wrapper script to /usr/bin/
 mkdir -p %{buildroot}%{_bindir}
 install -m 755 %{SOURCE5} %{buildroot}%{_bindir}/antigravity-ide
@@ -160,6 +186,11 @@ chmod 4755 %{buildroot}%{install_dir}/chrome-sandbox 2>/dev/null || true
 
 # ============================================================================
 %changelog
-* Wed Jul 23 2026 Community Maintainer <antigravity-ide-rpm@users.noreply.github.com> - 2.1.1-1
+* Tue Jul 28 2026 Community Maintainer <antigravity-ide-rpm@users.noreply.github.com> - 2.1.1-2
+- Clear product.json's updateUrl at install time to disable the bundled
+  in-app auto-updater, which was showing spurious "update available"
+  notifications (pointing at unrelated upstream VS Code release notes)
+  even on fully up-to-date dnf installs. Updates are managed via dnf/COPR.
+* Thu Jul 23 2026 Community Maintainer <antigravity-ide-rpm@users.noreply.github.com> - 2.1.1-1
 - Initial community RPM package for Fedora
 - Repackages upstream tar.gz from antigravity.google

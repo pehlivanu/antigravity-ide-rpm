@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       force_rebuild:
-        description: 'Force a rebuild even if version unchanged'
+        description: 'Trigger a COPR rebuild of the currently committed spec, even if the upstream version is unchanged (e.g. after a packaging-only fix + manual Release bump). Does not touch Version/Release/changelog.'
         required: false
         default: 'false'
         type: boolean
@@ -61,7 +61,7 @@ jobs:
           fi
 
       - name: Update spec file
-        if: steps.latest.outputs.updated == 'true' || inputs.force_rebuild == 'true'
+        if: steps.latest.outputs.updated == 'true'
         env:
           NEW_VERSION: ${{ steps.latest.outputs.version }}
           URL_X64: ${{ steps.latest.outputs.url_x64 }}
@@ -87,7 +87,7 @@ jobs:
           echo "Spec file updated to version ${NEW_VERSION}"
 
       - name: Commit and push
-        if: steps.latest.outputs.updated == 'true' || inputs.force_rebuild == 'true'
+        if: steps.latest.outputs.updated == 'true'
         env:
           NEW_VERSION: ${{ steps.latest.outputs.version }}
         run: |
