@@ -19,52 +19,90 @@ sudo dnf copr enable pehlivanu/antigravity-ide
 sudo dnf install antigravity-ide
 ```
 
-## 🔄 Updates
+## 🔄 Keeping Antigravity IDE Updated
 
-Updates are checked **daily** via GitHub Actions. When a new version is detected:
-
-1. The spec file is automatically updated
-2. A COPR rebuild is triggered
-3. The new RPM becomes available within ~30 minutes
-
-To update:
+Once the COPR repo is enabled (see Quick Install above), staying current is
+just:
 
 ```bash
-# Updates along with all your other packages
 sudo dnf upgrade
-
-# Or update just Antigravity IDE
-sudo dnf upgrade antigravity-ide
 ```
 
-### Want zero manual steps, including the install?
+Run whenever you like — weekly, or as part of your normal `sudo dnf upgrade`
+habit alongside the rest of your system. There's no separate channel or
+extra repo to remember: `antigravity-ide` upgrades exactly like any other
+`dnf`-managed package, because a daily pipeline behind the scenes keeps the
+COPR repo itself current (see **How It Works** below), so the new build is
+usually already sitting in the repo by the time you run the command.
 
-The check → build → publish pipeline above already runs unattended. To also
-auto-*install* new builds on your machine (with a desktop notification when
-it happens), see [`local-autoupdate/`](local-autoupdate/) — a one-time
-`./install.sh` sets up a `systemd --user` timer scoped to just this package.
+If you want that last mile automated too — no need to even remember to run
+`dnf upgrade` — see [`local-autoupdate/`](local-autoupdate/): a one-time
+`./install.sh` sets up a `systemd --user` timer that checks daily and
+installs new builds automatically, with a desktop notification when it does.
+
+### Why doesn't the app itself tell me when an update is available?
+
+It deliberately doesn't, on purpose. Antigravity IDE bundles VS Code's own
+in-app updater, which independently pings a Google-owned endpoint and shows
+its own "update available" banner — a mechanism this packaging has no
+control over and that isn't aware of what's actually published in this COPR
+repo. Left alone, it produces confusing false positives (a notification
+telling you to update even when you're already on the latest COPR build).
+This package clears `product.json`'s `updateUrl` at build time, which is the
+sanctioned way VS Code-based apps disable their built-in updater — so `dnf`
+is the one and only source of truth for whether a new version is available.
+If you ever see an in-app "update available" notification, it's stale
+cache from before this fix (`2.1.1-2`+); `sudo dnf upgrade` is always the
+authoritative answer.
 
 ## 🏗️ How It Works
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  GitHub Actions  │────▶│  Detects new      │────▶│  Updates spec   │
-│  (daily cron)    │     │  version from     │     │  + commits +    │
-│                  │     │  antigravity.google│     │  tags           │
-└─────────────────┘     └──────────────────┘     └────────┬────────┘
-                                                           │
-                                                           ▼
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  User runs      │◀────│  RPM available    │◀────│  COPR builds    │
-│  dnf upgrade    │     │  in repo          │     │  RPM from spec  │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
+┌────────────────────┐     ┌─────────────────────┐     ┌────────────────────┐
+│  GitHub Actions    │────▶│  Detects new        │────▶│  Updates spec      │
+│  (daily cron)      │     │  version upstream   │     │  + commits + tags  │
+└────────────────────┘     └─────────────────────┘     └──────────┬─────────┘
+                                                                   │
+                                                                   ▼
+┌────────────────────┐     ┌─────────────────────┐     ┌────────────────────┐
+│  dnf upgrade       │◀────│  RPM available      │◀────│  COPR builds       │
+│  installs it       │     │  in the COPR repo   │     │  RPM from spec     │
+└────────────────────┘     └─────────────────────┘     └────────────────────┘
 ```
 
-1. **Daily Check**: GitHub Actions downloads the latest tarball from `antigravity.google/download` and extracts the version from `product.json`
-2. **Auto-Update**: If a new version is found, the `.spec` file is updated, committed, and tagged
-3. **COPR Webhook**: A webhook triggers the COPR build system
-4. **COPR Build**: COPR clones this repo, runs `.copr/Makefile`, downloads the tarball from Google, and builds a native RPM
-5. **DNF Update**: The RPM appears in the COPR repo and is available via `sudo dnf upgrade`
+Everything from "new version exists" to "the RPM is sitting in the COPR
+repo" runs unattended, with no human in the loop:
+
+1. **Daily Check** (`check-update.yml`, 06:00 UTC): GitHub Actions downloads
+   the latest tarball from `antigravity.google/download` and extracts the
+   version from `product.json`.
+2. **Auto-Update**: If it's newer than the version currently in
+   `antigravity-ide.spec`, the workflow updates the spec, commits, and tags
+   `vX.Y.Z` on `main`.
+3. **COPR Webhook**: The workflow pings COPR's build webhook.
+4. **COPR Build**: COPR clones this repo, runs `.copr/Makefile` (which
+   downloads the real tarballs for x86_64 and aarch64 from Google), and
+   builds the RPM via `antigravity-ide.spec`. As part of `%install`, the
+   spec also clears `product.json`'s `updateUrl`, disabling the bundled
+   in-app updater so it can't produce update notifications that disagree
+   with what's actually in the COPR repo (see **Keeping Antigravity IDE
+   Updated** above for why).
+5. **Published**: The RPM appears in the COPR repo, ready for `sudo dnf
+   upgrade` — or fully unattended local installs via
+   [`local-autoupdate/`](local-autoupdate/).
+
+**Packaging-only fixes** (no upstream version change, e.g. tweaking
+`%install`) don't auto-trigger a COPR rebuild through this pipeline, since
+step 2's trigger is gated on an actual version bump. For those, bump
+`Release` by hand, commit, and dispatch the workflow manually with
+`force_rebuild`:
+
+```bash
+gh workflow run check-update.yml -f force_rebuild=true
+```
+
+This only pings the COPR webhook to rebuild whatever's currently committed —
+it does not touch `Version`/`Release`/the changelog.
 
 ## 📁 Repository Structure
 
