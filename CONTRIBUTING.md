@@ -79,4 +79,4 @@ sudo dnf install rpm-build rpmdevtools curl spectool
 
 ## Adding Support for New Fedora Versions
 
-When a new Fedora version is released (or enters beta), you don't need to change any code here. The repository maintainer simply needs to go to the [COPR project settings](https://copr.fedorainfracloud.org/coprs/pehlivanu/antigravity-ide/edit/) and check the box for the new target chroot (e.g., `fedora-42-x86_64`).
+When a new Fedora version is released (or enters beta), you don't need to change any code here. The repository maintainer simply needs to go to the [COPR project settings](https://copr.fedorainfracloud.org/coprs/pehlivanu/antigravity-ide/edit/) and check the box for the new target chroots (e.g., `fedora-45-x86_64` and `fedora-45-aarch64`).

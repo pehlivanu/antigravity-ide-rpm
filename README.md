@@ -175,11 +175,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details on:
 
 | Fedora Version | Architecture | Status |
 |---|---|---|
-| Fedora 40 | x86_64 | ✅ Supported |
-| Fedora 41 | x86_64 | ✅ Supported |
-| Fedora 42 | x86_64 | ✅ Supported |
-| Fedora Rawhide | x86_64 | ✅ Supported |
-| Fedora 40+ | aarch64 | 🔜 Planned |
+| Fedora 43 | x86_64, aarch64 | ✅ Supported |
+| Fedora 44 | x86_64, aarch64 | ✅ Supported |
+| Fedora 45 | x86_64, aarch64 | ✅ Supported |
+| Fedora Rawhide | x86_64, aarch64 | ✅ Supported |
 
 ## ⚖️ License
 
