@@ -79,7 +79,12 @@ repo" runs unattended, with no human in the loop:
 2. **Auto-Update**: If it's newer than the version currently in
    `antigravity-ide.spec`, the workflow updates the spec, commits, and tags
    `vX.Y.Z` on `main`.
-3. **COPR Webhook**: The workflow pings COPR's build webhook.
+3. **GitHub → COPR Webhook**: This repo has a native GitHub webhook
+   (Settings → Webhooks) pointed at COPR's push endpoint for this package.
+   *Any* push to `main` — whether from this workflow's version-bump commit
+   or a manual packaging fix — triggers a COPR rebuild automatically.
+   There's no custom trigger step to maintain; it's the same mechanism
+   COPR uses for any GitHub-tracked SCM package.
 4. **COPR Build**: COPR clones this repo, runs `.copr/Makefile` (which
    downloads the real tarballs for x86_64 and aarch64 from Google), and
    builds the RPM via `antigravity-ide.spec`. As part of `%install`, the
@@ -92,17 +97,10 @@ repo" runs unattended, with no human in the loop:
    [`local-autoupdate/`](local-autoupdate/).
 
 **Packaging-only fixes** (no upstream version change, e.g. tweaking
-`%install`) don't auto-trigger a COPR rebuild through this pipeline, since
-step 2's trigger is gated on an actual version bump. For those, bump
-`Release` by hand, commit, and dispatch the workflow manually with
-`force_rebuild`:
-
-```bash
-gh workflow run check-update.yml -f force_rebuild=true
-```
-
-This only pings the COPR webhook to rebuild whatever's currently committed —
-it does not touch `Version`/`Release`/the changelog.
+`%install`) don't get picked up by step 1's version comparison, since
+nothing upstream changed. For those: bump `Release` by hand, commit, and
+push to `main` as usual — the webhook in step 3 rebuilds it regardless of
+whether the *version* changed, since it fires on every push.
 
 ## 📁 Repository Structure
 
