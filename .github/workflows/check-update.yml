@@ -104,7 +104,7 @@ jobs:
           echo "✅ Committed and tagged v${NEW_VERSION}"
 
       - name: Trigger COPR rebuild
-        if: steps.latest.outputs.updated == 'true' || inputs.force_rebuild == 'true'
+        if: steps.latest.outputs.updated == 'true' || inputs.force_rebuild
         env:
           COPR_WEBHOOK_URL: ${{ secrets.COPR_WEBHOOK_URL }}
         run: |
