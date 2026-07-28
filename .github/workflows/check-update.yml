@@ -104,10 +104,15 @@ jobs:
           echo "✅ Committed and tagged v${NEW_VERSION}"
 
       - name: Trigger COPR rebuild
-        if: (steps.latest.outputs.updated == 'true' || inputs.force_rebuild == 'true') && secrets.COPR_WEBHOOK_URL != ''
+        if: steps.latest.outputs.updated == 'true' || inputs.force_rebuild == 'true'
         env:
           COPR_WEBHOOK_URL: ${{ secrets.COPR_WEBHOOK_URL }}
         run: |
+          if [[ -z "$COPR_WEBHOOK_URL" ]]; then
+            echo "⚠️  COPR_WEBHOOK_URL secret is not set; skipping COPR trigger"
+            exit 0
+          fi
+
           echo "Triggering COPR rebuild..."
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$COPR_WEBHOOK_URL")
           if [[ "$RESPONSE" -ge 200 && "$RESPONSE" -lt 300 ]]; then
