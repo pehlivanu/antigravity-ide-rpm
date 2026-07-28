@@ -8,7 +8,7 @@ on:
       force_rebuild:
         description: 'Trigger a COPR rebuild of the currently committed spec, even if the upstream version is unchanged (e.g. after a packaging-only fix + manual Release bump). Does not touch Version/Release/changelog.'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 permissions:
@@ -114,9 +114,12 @@ jobs:
           fi
 
           echo "Triggering COPR rebuild..."
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$COPR_WEBHOOK_URL")
+          RESPONSE=$(curl -s -o /tmp/copr_response.txt -w "%{http_code}" -X POST "$COPR_WEBHOOK_URL")
           if [[ "$RESPONSE" -ge 200 && "$RESPONSE" -lt 300 ]]; then
             echo "✅ COPR rebuild triggered successfully (HTTP $RESPONSE)"
           else
             echo "⚠️  COPR webhook returned HTTP $RESPONSE"
+            echo "--- response body (secret values are auto-masked) ---"
+            head -c 2000 /tmp/copr_response.txt
+            echo
           fi
